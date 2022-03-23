@@ -1,8 +1,10 @@
 from email import header
+from importlib.resources import contents
 from lib2to3.pgen2 import token
 from urllib import response
 from flask import url_for
 import json
+from flask_app.auth import register
 from flask_app.models import User, BlackListToken
 from time import sleep
 from flask_app.extensions import db
@@ -265,14 +267,52 @@ class TestAuth():
         assert logout_data['status'] == 'fail'
         assert logout_data['message'] == 'Token blacklisted. Please log in again.'
         assert response_logout.status_code == 401
-    
+
     def test_user_status_malformed_bearer_token(self, client):
         """This is to test user with malformed token i.e Athorization which the Bearer and the token has no space"""
 
+        register_user = client.post(url_for("auth.register"), data=json.dumps(dict(
+            email="markAngel1@gmail.com",
+            password='password'
+        )),
+            content_type="application/json"
+        )
 
-        register_user = client.post(url_for("users.get_user"), data=json.dumps(
-            email="markAngel@gmail.com",
-            password = 'password'
-        ))
+        register_response = json.loads(register_user.data.decode())
+        # json.loads(response.data.decode())
 
-        
+        assert register_response['status'] == 'success'
+        assert register_response['message'] == 'Successfully registered.'
+        assert register_response['auth_token']
+        assert register_user.status_code == 201
+
+        login_user = client.post(url_for('auth.login'), data=json.dumps(dict(
+            email="markAngel1@gmail.com",
+            password='password'
+        )),
+            content_type="application/json"
+        )
+
+        login_response = json.loads(login_user.data.decode())
+
+        assert login_response['status'] == 'success'
+        assert login_response['message'] == 'Successfully logged in.'
+        assert login_response['auth_token']
+
+        # Black list a token before reaching the get_user endpoint so that it will no be valid again.
+        black_list_token = BlackListToken(token=login_response['auth_token'])
+
+        db.session.add(black_list_token)
+        db.session.commit()
+
+        user_response = client.get(url_for('users.get_user'),
+                                   headers=dict(
+            Authorization="Bearer " + login_response['auth_token']
+        )
+        )
+
+        user_data = json.loads(user_response.data.decode())
+
+        assert user_data['status'] == 'fail'
+        assert user_data['message'] == 'Token blacklisted. Please log in again.'
+        assert user_response.status_code == 401

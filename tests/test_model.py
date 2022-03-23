@@ -16,7 +16,7 @@ class TestUserModel():
 
         auth_token = user.encode_auth_token(user.id)
         assert isinstance(auth_token, bytes)
-        assert User.decode_user_token(auth_token) == 8
+        assert User.decode_user_token(auth_token) == 9
 
     def test_token_decode_and_encode(self, db):
         """Testing the token in bytes and integer for the payload"""
@@ -32,4 +32,4 @@ class TestUserModel():
         auth_token = user.encode_auth_token(user.id)
 
         assert isinstance(auth_token, bytes)
-        assert (User.decode_user_token(auth_token.decode('utf-8')) == 9)
+        assert (User.decode_user_token(auth_token.decode('utf-8')) == 10)
